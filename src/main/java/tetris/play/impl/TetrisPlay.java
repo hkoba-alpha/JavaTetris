@@ -1,4 +1,4 @@
-package tetris.play;
+package tetris.play.impl;
 
 import org.newdawn.slick.*;
 import org.newdawn.slick.Color;
@@ -14,8 +14,11 @@ import tetris.config.IMinoImage;
 import tetris.config.IPlayConfig;
 import tetris.config.impl.NormalMinoConfig;
 import tetris.config.impl.SegaMinoImage;
+import tetris.data.KeyInputData;
 import tetris.data.MinoSprite;
 import tetris.data.ScreenData;
+import tetris.play.ITetrisPlay;
+import tetris.play.TetriminoData;
 
 import java.awt.*;
 import java.awt.Font;
@@ -24,7 +27,7 @@ import java.util.ArrayList;
 /**
  * Created by hkoba on 2016/08/30.
  */
-public class TetrisPlay extends BasicGameState {
+public class TetrisPlay implements ITetrisPlay {
     private IPlayConfig playConfig;
     private IMinoConfig minoConfig;
     private IMinoImage minoImage;
@@ -62,7 +65,6 @@ public class TetrisPlay extends BasicGameState {
     private ArrayList<MinoSprite> waitList;
 
     private Image screenImage;
-    private Image bgImage;
 
     private PlayMode playMode;
     private int curLevel;
@@ -71,69 +73,21 @@ public class TetrisPlay extends BasicGameState {
 
     private int nextMoveX;
 
-    private TrueTypeFont typeFont;
+    private KeyInputData inputData;
 
-    public TetrisPlay(IPlayConfig config) {
+    public TetrisPlay(IPlayConfig config, KeyInputData inputData) {
         playConfig = config;
         screenData = new ScreenData();
         waitList = new ArrayList<>();
-        // dummy
-        minoConfig = new NormalMinoConfig();
-        minoImage = new SegaMinoImage();
+        this.inputData = inputData;
         try {
             screenImage = new Image(16 * 10, 16 * 20);
-            bgImage = new Image(16 * 12, 16 * 28);
-            Graphics g = bgImage.getGraphics();
-            g.setColor(Color.lightGray);
-            g.fillRect(0, 5 * 16, 12 * 16, 22 * 16);
-            g.setColor(Color.white);
-            g.fillRect(4, 5 * 16 + 4, 12 * 16 - 8, 22 * 16 - 8);
-            g.setColor(Color.lightGray);
-            g.fillRect(12, 5 * 16 + 12, 12 * 16 - 24, 22 * 16 - 24);
-
-            g.setColor(Color.lightGray);
-            //g.drawLine(8, 8, 8, 80);
-            Polygon polygon = new Polygon();
-            polygon.addPoint(40, 32);
-            polygon.addPoint(0, 32);
-            polygon.addPoint(0, 71);
-            polygon.addPoint(55, 71);
-            polygon.addPoint(55, 7);
-            polygon.addPoint(128, 7);
-            polygon.addPoint(128, 39);
-            polygon.addPoint(191, 39);
-            polygon.addPoint(191, 32);
-            polygon.addPoint(135, 32);
-            polygon.addPoint(135, 0);
-            polygon.addPoint(48, 0);
-            polygon.addPoint(48, 64);
-            polygon.addPoint(7, 64);
-            polygon.addPoint(7, 39);
-            polygon.addPoint(40, 39);
-            g.translate(1, 1);
-            g.setColor(Color.white);
-            g.fill(polygon);
-            g.translate(7, 7);
-            for (int i = 7; i > 1; i--) {
-                g.translate(-1, -1);
-                g.setColor(new Color(255 - i * 16, 255 - i * 16, 255 - i * 16));
-                g.fill(polygon);
-            }
-            g.translate(-1, -1);
-            typeFont = new TrueTypeFont(new Font("gothic", Font.BOLD, 14), true, "NX".toCharArray());
-            g.setFont(typeFont);
-            g.setColor(new Color(240, 255, 192));
-            g.setColor(Color.green);
-            g.drawString("HOLD", 0, 16);
-            g.drawString("NEXT", 73, 16);
-
-            g.setColor(Color.transparent);
-            g.setDrawMode(Graphics.MODE_ALPHA_MAP);
-            g.fillRect(1 * 16, 6 * 16, 10 * 16, 20 * 16);
-            g.flush();
         } catch (SlickException e) {
             e.printStackTrace();
         }
+        // dummy
+        minoConfig = new NormalMinoConfig();
+        minoImage = new SegaMinoImage();
         curLevel = playConfig.initLevel();
         stockNextMino();
     }
@@ -153,7 +107,8 @@ public class TetrisPlay extends BasicGameState {
                 playConfig.getDas(curLevel),
                 playConfig.getLock(curLevel),
                 playConfig.getGravity(curLevel),
-                ch | (playConfig.getHideTurn(curLevel) << 16));
+                ch | (playConfig.getHideTurn(curLevel) << 16),
+                inputData);
         stockNextMino();
         holdFlag = false;
         nextMoveX = NEXT_POSITION_X;
@@ -169,7 +124,7 @@ public class TetrisPlay extends BasicGameState {
         if (holdFlag) {
             return;
         }
-        if (!KeyAction.BUTTON_HOLD.isPush()) {
+        if (!inputData.HOLD_BUTTON.isPush()) {
             return;
         }
         if (holdMino == null) {
@@ -180,7 +135,9 @@ public class TetrisPlay extends BasicGameState {
         holdMino = tetriminoData.changeHold(holdMino);
     }
 
-    public void nextFrame() {
+    @Override
+    public ITetrisPlay nextFrame() {
+        inputData.nextFrame();
         if (nextMoveX > 0) {
             nextMoveX -= 8;
         }
@@ -192,7 +149,7 @@ public class TetrisPlay extends BasicGameState {
                 waitNum = playConfig.getLineAre(curLevel);
                 playMode = PlayMode.WAIT_ARE;
             }
-            return;
+            return this;
         } else if (playMode == PlayMode.WAIT_ARE) {
             waitNum--;
             if (waitNum <= 0) {
@@ -200,10 +157,10 @@ public class TetrisPlay extends BasicGameState {
                 nextTetrimino();
                 holdCheck();
             }
-            return;
+            return this;
         } else if (playMode == PlayMode.GAME_OVER) {
             // ゲームオーバー
-            return;
+            return this;
         }
         // MOVE_MINO
         if (tetriminoData == null) {
@@ -218,7 +175,7 @@ public class TetrisPlay extends BasicGameState {
                 waitNum = playConfig.getAre(curLevel);
                 playMode = PlayMode.WAIT_ARE;
             }
-            return;
+            return this;
         } else {
             // HOLDチェック
             holdCheck();
@@ -226,8 +183,10 @@ public class TetrisPlay extends BasicGameState {
                 tetriminoData = null;
             }
         }
+        return this;
     }
 
+    @Override
     public void draw(Graphics g) {
         try {
             screenData.drawScreen(screenImage.getGraphics(), minoImage);
@@ -263,34 +222,7 @@ public class TetrisPlay extends BasicGameState {
             tetriminoData.draw(g);
         }
         g.translate(-16, -6 * 16);
-        g.drawImage(bgImage, 0, 0);
-        g.setFont(typeFont);
         g.setColor(Color.green);
         g.drawString(String.valueOf(curLevel), 200, 100);
-    }
-
-    @Override
-    public int getID() {
-        return 0;
-    }
-
-    @Override
-    public void init(GameContainer container, StateBasedGame game) throws SlickException {
-        for (KeyAction action: KeyAction.values()) {
-            action.resetCount();
-        }
-    }
-
-    @Override
-    public void render(GameContainer container, StateBasedGame game, Graphics g) throws SlickException {
-        draw(g);
-    }
-
-    @Override
-    public void update(GameContainer container, StateBasedGame game, int delta) throws SlickException {
-        for (KeyAction action: KeyAction.values()) {
-            action.nextFrame();
-        }
-        nextFrame();
     }
 }

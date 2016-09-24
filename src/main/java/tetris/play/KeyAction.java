@@ -5,17 +5,13 @@ import org.newdawn.slick.command.Command;
 /**
  * Created by hkoba on 2016/08/30.
  */
-public enum KeyAction implements Command {
-    MOVE_LEFT,
-    MOVE_RIGHT,
-    MOVE_DROP,
-    HARD_DROP,
-    BUTTON_HOLD,
-    TURN_RIGHT,
-    TURN_LEFT;
-
+public class KeyAction implements Command {
     private int count;
     private boolean pushFlag;
+
+    public KeyAction() {
+
+    }
 
     public int getCount() {
         return count;
