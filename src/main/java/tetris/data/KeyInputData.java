@@ -13,6 +13,7 @@ public class KeyInputData {
     public final KeyAction TURN_LEFT = new KeyAction();
     public final KeyAction TURN_RIGHT = new KeyAction();
     public final KeyAction HOLD_BUTTON = new KeyAction();
+    public final KeyAction START_BUTTON = new KeyAction();
 
     public void nextFrame() {
         MOVE_LEFT.nextFrame();
@@ -22,5 +23,6 @@ public class KeyInputData {
         TURN_LEFT.nextFrame();
         TURN_RIGHT.nextFrame();
         HOLD_BUTTON.nextFrame();
+        START_BUTTON.nextFrame();
     }
 }

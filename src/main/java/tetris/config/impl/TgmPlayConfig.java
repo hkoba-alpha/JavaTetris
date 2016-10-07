@@ -15,6 +15,12 @@ public class TgmPlayConfig implements IPlayConfig {
     private Random randomData = new Random();
     private String lastMino = "ZS";
 
+    private int firstLevel;
+
+    public TgmPlayConfig(int level) {
+        firstLevel = level;
+    }
+
     protected List<Character> makeNextList(String secondList) {
         StringBuilder bufData = new StringBuilder("ITOSZJL");
         if (secondList != null) {
@@ -61,8 +67,9 @@ public class TgmPlayConfig implements IPlayConfig {
     }
 
     @Override
-    public int initLevel() {
-        return 0;
+    public int initLevel(long seed) {
+        randomData = new Random(seed);
+        return firstLevel;
     }
 
     @Override

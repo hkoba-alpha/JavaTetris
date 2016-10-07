@@ -19,6 +19,7 @@ import tetris.data.MinoSprite;
 import tetris.data.ScreenData;
 import tetris.play.ITetrisPlay;
 import tetris.play.TetriminoData;
+import tetris.play.game.TetrisPlayGame;
 
 import java.awt.*;
 import java.awt.Font;
@@ -75,21 +76,34 @@ public class TetrisPlay implements ITetrisPlay {
 
     private KeyInputData inputData;
 
-    public TetrisPlay(IPlayConfig config, KeyInputData inputData) {
-        playConfig = config;
+    /**
+     * ハンディタイム
+     */
+    private int delayTime;
+
+    /**
+     * プレイ時間
+     */
+    private int playTime;
+
+    public TetrisPlay(ModeSelectPlay selectPlay) {
+        playConfig = selectPlay.getPlayConfig();
         screenData = new ScreenData();
         waitList = new ArrayList<>();
-        this.inputData = inputData;
+        this.inputData = selectPlay.getInputData();
         try {
             screenImage = new Image(16 * 10, 16 * 20);
         } catch (SlickException e) {
             e.printStackTrace();
         }
-        // dummy
-        minoConfig = new NormalMinoConfig();
-        minoImage = new SegaMinoImage();
-        curLevel = playConfig.initLevel();
+        minoConfig = selectPlay.getMinoConfig();
+        minoImage = selectPlay.getMinoImage();
+        curLevel = playConfig.initLevel(selectPlay.getRandomSeed());
         stockNextMino();
+        playMode = PlayMode.WAIT_ARE;
+        // １秒待ち
+        waitNum = 60;
+        delayTime = selectPlay.getHandicapTime();
     }
 
     private void stockNextMino() {
@@ -110,7 +124,6 @@ public class TetrisPlay implements ITetrisPlay {
                 ch | (playConfig.getHideTurn(curLevel) << 16),
                 inputData);
         stockNextMino();
-        holdFlag = false;
         nextMoveX = NEXT_POSITION_X;
         // ゲームオーバーのチェック
         if (tetriminoData.isGameOver(screenData)) {
@@ -124,20 +137,39 @@ public class TetrisPlay implements ITetrisPlay {
         if (holdFlag) {
             return;
         }
-        if (!inputData.HOLD_BUTTON.isPush()) {
+        if (inputData.HOLD_BUTTON.getCount() != 1) {
             return;
         }
+        holdFlag = true;
         if (holdMino == null) {
             holdMino = waitList.remove(0);
             stockNextMino();
+            if (tetriminoData == null) {
+                return;
+            }
         }
-        holdFlag = true;
-        holdMino = tetriminoData.changeHold(holdMino);
+        if (tetriminoData != null) {
+            // 移動中
+            holdMino = tetriminoData.changeHold(holdMino);
+        } else {
+            // ARE
+            waitList.add(0, holdMino);
+            holdMino = waitList.remove(1);
+        }
     }
 
     @Override
-    public ITetrisPlay nextFrame() {
+    public ITetrisPlay nextFrame(ITetrisPlay[] playList, int index) {
+        if (delayTime > 0) {
+            delayTime--;
+            inputData.nextFrame();
+            return this;
+        }
         inputData.nextFrame();
+        if (playMode == PlayMode.GAME_OVER) {
+            return this;
+        }
+        playTime++;
         if (nextMoveX > 0) {
             nextMoveX -= 8;
         }
@@ -147,19 +179,17 @@ public class TetrisPlay implements ITetrisPlay {
                 // AREへ以降
                 screenData.dropLines();
                 waitNum = playConfig.getLineAre(curLevel);
+                holdFlag = false;
                 playMode = PlayMode.WAIT_ARE;
             }
             return this;
         } else if (playMode == PlayMode.WAIT_ARE) {
+            holdCheck();
             waitNum--;
             if (waitNum <= 0) {
                 waitNum = 0;
                 nextTetrimino();
-                holdCheck();
             }
-            return this;
-        } else if (playMode == PlayMode.GAME_OVER) {
-            // ゲームオーバー
             return this;
         }
         // MOVE_MINO
@@ -174,6 +204,7 @@ public class TetrisPlay implements ITetrisPlay {
                 curLevel = playConfig.getNextLevel(curLevel, 0);
                 waitNum = playConfig.getAre(curLevel);
                 playMode = PlayMode.WAIT_ARE;
+                holdFlag = false;
             }
             return this;
         } else {
@@ -212,7 +243,7 @@ public class TetrisPlay implements ITetrisPlay {
         if (holdMino != null) {
             holdMino.drawMino(g, 0.5f, 16, 48);
         }
-        g.translate(16, 6 * 16);
+        g.translate(TetrisPlayGame.SCREEN_X, TetrisPlayGame.SCREEN_Y);
         g.drawImage(screenImage, 0, 0);
         screenData.drawFadeItem(g);
         if (tetriminoData != null) {
@@ -223,6 +254,23 @@ public class TetrisPlay implements ITetrisPlay {
         }
         g.translate(-16, -6 * 16);
         g.setColor(Color.green);
-        g.drawString(String.valueOf(curLevel), 200, 100);
+        String nextLevel = String.valueOf(playConfig.getTargetLevel(curLevel));
+        String level = "    " + String.valueOf(curLevel);
+        level = level.substring(level.length() - nextLevel.length());
+        g.drawString(level, TetrisPlayGame.LEVEL_X, TetrisPlayGame.LEVEL_Y);
+        g.drawString(nextLevel, TetrisPlayGame.LEVEL_X, TetrisPlayGame.LEVEL_Y + 20);
+        if (delayTime > 0) {
+            // 待ち時間
+            g.setColor(Color.white);
+            int min = delayTime / 60 / 60;
+            int sec = (delayTime / 60) % 60;
+            int msec = (delayTime % 60) * 1000 / 60;
+            g.drawString(String.format("%02d:%02d.%03d", min, sec, msec), TetrisPlayGame.SCREEN_X + 20, TetrisPlayGame.SCREEN_Y + 80);
+        } else {
+            g.setColor(Color.white);
+            int min = playTime / 60 / 60;
+            int sec = (playTime / 60) % 60;
+            g.drawString(String.format("%d:%02d", min, sec), TetrisPlayGame.LEVEL_X - 10, TetrisPlayGame.LEVEL_Y + 80);
+        }
     }
 }

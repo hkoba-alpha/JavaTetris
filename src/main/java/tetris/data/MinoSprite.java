@@ -22,6 +22,7 @@ public class MinoSprite {
     private double rotate;
     private Image blockImage;
     private int alpha;
+    private int edgeFrame;
 
     public MinoSprite(char code, IMinoData mino, Image img) {
         minoCode = code;
@@ -78,8 +79,15 @@ public class MinoSprite {
         if (alpha < 255) {
             filter = new Color(255, 255, 255, alpha);
         }
-        for (Point pt: getBlockPoint()) {
+        Point[] ptlist = getBlockPoint();
+        for (Point pt: ptlist) {
             g.drawImage(blockImage, pt.x * sz, (pt.y - 2) * sz, filter);
+        }
+        if (alpha >= 255) {
+            EdgeLineData.makeEdgeData(ptlist).forEach(v -> {
+                v.draw(g, edgeFrame >> 1);
+            });
+            edgeFrame++;
         }
     }
     public void drawMino(Graphics g, float scale, int sx, int sy) {
@@ -89,7 +97,8 @@ public class MinoSprite {
         if (alpha < 255) {
             filter = new Color(255, 255, 255, alpha);
         }
-        for (Point pt: getBlockPoint()) {
+        Point[] ptlist = getBlockPoint();
+        for (Point pt: ptlist) {
             int dx = (pt.x - blockX) * sz + sx;
             int dy = (pt.y - blockY) * sz + sy;
             g.drawImage(blockImage, dx, dy, dx + sz, dy + sz, 0, 0, size, size, filter);

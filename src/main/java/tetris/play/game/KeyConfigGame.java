@@ -2,12 +2,12 @@ package tetris.play.game;
 
 import org.newdawn.slick.*;
 import org.newdawn.slick.command.*;
-import org.newdawn.slick.opengl.InternalTextureLoader;
 import org.newdawn.slick.state.BasicGameState;
 import org.newdawn.slick.state.StateBasedGame;
 import tetris.data.KeyInputData;
 import tetris.play.KeyAction;
 
+import java.io.*;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,7 +41,8 @@ public class KeyConfigGame extends BasicGameState implements InputProviderListen
         HARD_DROP("HARD DROP ", "HARD_DROP"),
         TURN_LEFT("TURN LEFT ", "TURN_LEFT"),
         TURN_RIGHT("TURN RIGHT", "TURN_RIGHT"),
-        HOLD_BUTTON("HOLD      ", "HOLD_BUTTON");
+        HOLD_BUTTON("HOLD      ", "HOLD_BUTTON"),
+        START_BUTTON("START     ", "START_BUTTON");
 
         private String keyName;
         private String fieldName;
@@ -70,6 +71,52 @@ public class KeyConfigGame extends BasicGameState implements InputProviderListen
             for (Field field: KeyInputData.class.getDeclaredFields()) {
                 keyMap.put(field.getName(), null);
             }
+            if (index == -1 && player == 0) {
+                // Player 1のキーボード
+                keyMap.put(KeyMenuList.MOVE_LEFT.fieldName, Input.KEY_LEFT);
+                keyMap.put(KeyMenuList.MOVE_RIGHT.fieldName, Input.KEY_RIGHT);
+                keyMap.put(KeyMenuList.MOVE_DROP.fieldName, Input.KEY_DOWN);
+                keyMap.put(KeyMenuList.HARD_DROP.fieldName, Input.KEY_UP);
+                keyMap.put(KeyMenuList.TURN_LEFT.fieldName, Input.KEY_Z);
+                keyMap.put(KeyMenuList.TURN_RIGHT.fieldName, Input.KEY_X);
+                keyMap.put(KeyMenuList.HOLD_BUTTON.fieldName, Input.KEY_SPACE);
+                keyMap.put(KeyMenuList.START_BUTTON.fieldName, Input.KEY_ENTER);
+            }
+            loadData();
+        }
+
+        private File getSaveFile() {
+            if (controllerIndex < 0) {
+                return new File("temp/keyboard_" + playerIndex + ".dat");
+            } else {
+                return new File("temp/controller_" + controllerIndex + ".dat");
+            }
+        }
+
+        private void loadData() {
+            try {
+                ObjectInputStream is = new ObjectInputStream(new FileInputStream(getSaveFile()));
+                playerIndex = is.readInt();
+                keyMap = (Map<String, Integer>) is.readObject();
+                is.close();
+            } catch (FileNotFoundException e) {
+                // 無視
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+        private void saveData() {
+            try {
+                new File("temp").mkdirs();
+                ObjectOutputStream os = new ObjectOutputStream(new FileOutputStream(getSaveFile()));
+                os.writeInt(playerIndex);
+                os.writeObject(keyMap);
+                os.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
 
         private void addListener(InputProvider provider, KeyInputData inputData) {
@@ -80,7 +127,24 @@ public class KeyConfigGame extends BasicGameState implements InputProviderListen
                 try {
                     Field field = KeyInputData.class.getDeclaredField(v.getKey());
                     if (controllerIndex >= 0) {
-                        provider.bindCommand(new ControllerButtonControl(controllerIndex, v.getValue()), (Command) field.get(inputData));
+                        int button = v.getValue();
+                        switch (button) {
+                            case 0: // left
+                                provider.bindCommand(new ControllerDirectionControl(controllerIndex, ControllerDirectionControl.LEFT), (Command) field.get(inputData));
+                                break;
+                            case 1: // right
+                                provider.bindCommand(new ControllerDirectionControl(controllerIndex, ControllerDirectionControl.RIGHT), (Command) field.get(inputData));
+                                break;
+                            case 2: // up
+                                provider.bindCommand(new ControllerDirectionControl(controllerIndex, ControllerDirectionControl.UP), (Command) field.get(inputData));
+                                break;
+                            case 3: // down
+                                provider.bindCommand(new ControllerDirectionControl(controllerIndex, ControllerDirectionControl.DOWN), (Command) field.get(inputData));
+                                break;
+                            default:
+                                provider.bindCommand(new ControllerButtonControl(controllerIndex, button - 3), (Command) field.get(inputData));
+                                break;
+                        }
                     } else {
                         provider.bindCommand(new KeyControl(v.getValue()), (Command) field.get(inputData));
                     }
@@ -126,6 +190,7 @@ public class KeyConfigGame extends BasicGameState implements InputProviderListen
         provider.addListener(this);
 
         for (KeyConfigData configData: configDataList) {
+            configData.saveData();
             configData.addListener(provider, inputDataList[configData.playerIndex]);
         }
     }
@@ -263,7 +328,25 @@ public class KeyConfigGame extends BasicGameState implements InputProviderListen
         }
     }
     private void checkController(Input input) {
-
+        for (int i = 0; i < 100; i++) {
+            if (input.isControlPressed(i, inputNumber - 2)) {
+                // ボタンを押した
+                for (KeyMenuList data: KeyMenuList.values()) {
+                    if (!keyMap.containsKey(data.keyName)) {
+                        keyMap.put(data.keyName, i);
+                        keyNameMap.get(data.keyName)[1] = getKeyName(i, false);
+                        break;
+                    }
+                }
+                if (keyMap.size() == KeyMenuList.values().length) {
+                    // 終了
+                    configMode = ConfigMode.ENTER_WAIT;
+                }
+                input.clearKeyPressedRecord();
+                input.clearControlPressedRecord();
+                break;
+            }
+        }
     }
 
     @Override
@@ -286,7 +369,11 @@ public class KeyConfigGame extends BasicGameState implements InputProviderListen
             return;
         } else if (configMode == ConfigMode.KEY_INPUT) {
             // 入力
-            checkKeyBoard(container.getInput());
+            if (inputNumber < 0) {
+                checkKeyBoard(container.getInput());
+            } else {
+                checkController(container.getInput());
+            }
             return;
         }
         // 選択モード
@@ -326,19 +413,6 @@ public class KeyConfigGame extends BasicGameState implements InputProviderListen
                 }
             }
         }
-        /*
-        long flag = 0;
-        int button = -1;
-        for (int i = 0; i < 64; i++) {
-            if (container.getInput().isControlPressed(i, 0)) {
-                button = i;
-                break;
-            }
-        }
-        if (button >= 0) {
-            System.out.println("push button: " + button);
-        }
-        */
     }
 
     private String getKeyName(Integer keyCode, boolean keyFlag) {
@@ -346,7 +420,18 @@ public class KeyConfigGame extends BasicGameState implements InputProviderListen
             return "<NONE>";
         }
         if (!keyFlag) {
-            return "BUTTON " + keyCode;
+            switch (keyCode) {
+                case 0:
+                    return "LEFT";
+                case 1:
+                    return "RIGHT";
+                case 2:
+                    return "UP";
+                case 3:
+                    return "DOWN";
+                default:
+                    return "BUTTON" + (keyCode - 3);
+            }
         }
         for (Field field: inputKeyList) {
             try {

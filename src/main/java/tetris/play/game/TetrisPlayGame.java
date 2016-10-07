@@ -9,6 +9,8 @@ import org.newdawn.slick.state.BasicGameState;
 import org.newdawn.slick.state.StateBasedGame;
 import tetris.config.impl.TgmPlayConfig;
 import tetris.data.KeyInputData;
+import tetris.play.ITetrisPlay;
+import tetris.play.impl.ModeSelectPlay;
 import tetris.play.impl.TetrisPlay;
 
 import java.awt.Font;
@@ -19,11 +21,17 @@ import java.awt.Font;
 public class TetrisPlayGame extends BasicGameState {
     public static final int STATE_ID = 0;
 
+    public static final int SCREEN_X = 16;
+    public static final int SCREEN_Y = 6 * 16;
+
+    public static final int LEVEL_X = 16 * 13;
+    public static final int LEVEL_Y = 180;
+
     private Image bgImage;
 
     private TrueTypeFont typeFont;
 
-    private TetrisPlay[] playList = new TetrisPlay[2];
+    private ITetrisPlay[] playList = new ITetrisPlay[2];
 
     public TetrisPlayGame() {
         try {
@@ -34,7 +42,7 @@ public class TetrisPlayGame extends BasicGameState {
                 g.setDrawMode(Graphics.MODE_NORMAL);
                 g.translate(ix * 256, 0);
                 g.setColor(Color.lightGray);
-                g.fillRect(0, 5 * 16, 12 * 16, 22 * 16);
+                g.fillRect(SCREEN_X - 16, SCREEN_Y - 16, 12 * 16, 22 * 16);
                 g.setColor(Color.white);
                 g.fillRect(4, 5 * 16 + 4, 12 * 16 - 8, 22 * 16 - 8);
                 g.setColor(Color.lightGray);
@@ -77,7 +85,7 @@ public class TetrisPlayGame extends BasicGameState {
 
                 g.setColor(Color.transparent);
                 g.setDrawMode(Graphics.MODE_ALPHA_MAP);
-                g.fillRect(1 * 16, 6 * 16, 10 * 16, 20 * 16);
+                g.fillRect(SCREEN_X, SCREEN_Y, 10 * 16, 20 * 16);
             }
             g.flush();
         } catch (SlickException e) {
@@ -87,7 +95,7 @@ public class TetrisPlayGame extends BasicGameState {
 
     public void setInputData(KeyInputData[] inputData) {
         for (int i = 0; i < inputData.length; i++) {
-            playList[i] = new TetrisPlay(new TgmPlayConfig(), inputData[i]);
+            playList[i] = new ModeSelectPlay(inputData[i]);
         }
     }
 
@@ -113,8 +121,9 @@ public class TetrisPlayGame extends BasicGameState {
 
     @Override
     public void update(GameContainer container, StateBasedGame game, int delta) throws SlickException {
-        for (TetrisPlay play: playList) {
-            play.nextFrame();
+        ITetrisPlay[] orgList = playList.clone();
+        for (int i = 0; i < playList.length; i++) {
+            playList[i] = playList[i].nextFrame(orgList, i);
         }
     }
 }

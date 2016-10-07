@@ -1,14 +1,12 @@
 package tetris.data;
 
-import org.newdawn.slick.*;
 import org.newdawn.slick.Color;
 import org.newdawn.slick.Graphics;
 import org.newdawn.slick.Image;
-import org.newdawn.slick.geom.*;
 import org.newdawn.slick.geom.Polygon;
 import tetris.config.IMinoImage;
 
-import java.awt.Point;
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -74,6 +72,8 @@ public class ScreenData {
     private int[][] blockData;
     private List<FadeOutItem> fadeOutItemList = new ArrayList<>();
     private int fadeCounter;
+    private List<EdgeLineData> edgeLineDataList = new ArrayList<>();
+    private int edgeFrame;
 
     private final int[] hideAlphaList = {
         0, 0x80, 0xc0, 0xe0, 0xf0, 0xf8
@@ -114,6 +114,7 @@ public class ScreenData {
             redrawBlock(pt.x, pt.y - 1);
             redrawBlock(pt.x, pt.y + 1);
         }
+        makeEdgeList();
     }
 
     /**
@@ -148,6 +149,9 @@ public class ScreenData {
                 }
             }
         }
+        if (ret > 0) {
+            makeEdgeList();
+        }
         return ret;
     }
 
@@ -180,11 +184,45 @@ public class ScreenData {
             }
         }
         if (topY < bottomY) {
+            if (bottomY < blockData.length - 1) {
+                bottomY++;
+            }
             // フラグをつける
             for (int y = topY; y <= bottomY; y++) {
                 int[] line = blockData[y];
                 for (int x = 0; x < 10; x++) {
                     line[x] |= 0x80;
+                }
+            }
+        }
+        makeEdgeList();
+    }
+
+    public void makeEdgeList() {
+        edgeLineDataList.clear();
+        for (int y = 2; y < blockData.length; y++) {
+            for (int x = 0; x < 10; x++) {
+                if ((blockData[y][x] & 0x7f) == 0) {
+                    continue;
+                }
+                if (((blockData[y][x] >> 8) & 0xff) < 64) {
+                    continue;
+                }
+                int flag = 0;
+                if (!isBlock(x, y - 1)) {
+                    flag |= 1;
+                }
+                if (!isBlock(x + 1, y)) {
+                    flag |= 2;
+                }
+                if (!isBlock(x, y + 1)) {
+                    flag |= 4;
+                }
+                if (!isBlock(x - 1, y)) {
+                    flag |= 8;
+                }
+                if (flag > 0) {
+                    edgeLineDataList.add(new EdgeLineData(x, y, flag));
                 }
             }
         }
@@ -248,29 +286,14 @@ public class ScreenData {
                             } else {
                                 g.drawImage(img, sx, sy);
                             }
-                            g.setColor(new Color(255, 255, 255, fill));
-                            if (!isBlock(x - 1, y)) {
-                                //g.drawLine(sx, sy, sx, sy + sz - 1);
-                                g.fillRect(sx, sy, 2, sz);
-                            }
-                            if (!isBlock(x + 1, y)) {
-                                //g.drawLine(sx + sz - 1, sy, sx + sz - 1, sy + sz - 1);
-                                g.fillRect(sx + sz - 2, sy, 2, sz);
-                            }
-                            if (!isBlock(x, y - 1)) {
-                                //g.drawLine(sx, sy, sx + sz - 1, sy);
-                                g.fillRect(sx, sy, sz, 2);
-                            }
-                            if (!isBlock(x, y + 1)) {
-                                //g.drawLine(sx, sy + sz - 1, sx + sz - 1, sy + sz - 1);
-                                g.fillRect(sx, sy + sz - 2, sz, 2);
-                            }
                         }
                     }
                     blockData[y][x] &= ~0x80;
                 }
             }
         }
+        edgeLineDataList.forEach(v -> v.draw(g, edgeFrame >> 2));
+        edgeFrame++;
     }
 
     public void drawFadeItem(Graphics g) {
