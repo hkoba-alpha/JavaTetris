@@ -5,6 +5,7 @@ import org.newdawn.slick.Graphics;
 import org.newdawn.slick.Image;
 import org.newdawn.slick.SlickException;
 import tetris.config.IMinoData;
+import tetris.data.KeyInputData;
 import tetris.data.MinoSprite;
 import tetris.data.ScreenData;
 
@@ -34,8 +35,11 @@ public class TetriminoData {
 
     private MinoSprite[] traceList = new MinoSprite[8];
 
-    public TetriminoData(MinoSprite mino, int das, int lock, int gravity, int block) {
+    private KeyInputData inputData;
+
+    public TetriminoData(MinoSprite mino, int das, int lock, int gravity, int block, KeyInputData inputData) {
         minoSprite = mino;
+        this.inputData = inputData;
         dasTime = das;
         lockTime = lock;
         gravitySpeed = gravity;
@@ -81,9 +85,9 @@ public class TetriminoData {
      */
     public boolean isGameOver(ScreenData screenData) {
         int turn = 0;
-        if (KeyAction.TURN_LEFT.isPush()) {
+        if (inputData.TURN_LEFT.isPush()) {
             turn = -1;
-        } else if (KeyAction.TURN_RIGHT.isPush()) {
+        } else if (inputData.TURN_RIGHT.isPush()) {
             turn = 1;
         }
         turnCheck(screenData, turn);
@@ -153,10 +157,10 @@ public class TetriminoData {
 
     private void turnCheck(ScreenData screenData) {
         int turn = 0;
-        if (KeyAction.TURN_RIGHT.getCount() == 1) {
+        if (inputData.TURN_RIGHT.getCount() == 1) {
             // 回転する
             turn = 1;
-        } else if (KeyAction.TURN_LEFT.getCount() == 1) {
+        } else if (inputData.TURN_LEFT.getCount() == 1) {
             // 回転する
             turn = -1;
         }
@@ -200,10 +204,10 @@ public class TetriminoData {
     }
     private void moveCheck(ScreenData screenData) {
         int ax = 0;
-        if (KeyAction.MOVE_RIGHT.getCount() == 1 || KeyAction.MOVE_RIGHT.getCount() >= dasTime) {
+        if (inputData.MOVE_RIGHT.getCount() == 1 || inputData.MOVE_RIGHT.getCount() >= dasTime) {
             // 右移動
             ax = 1;
-        } else if (KeyAction.MOVE_LEFT.getCount() == 1 || KeyAction.MOVE_LEFT.getCount() >= dasTime) {
+        } else if (inputData.MOVE_LEFT.getCount() == 1 || inputData.MOVE_LEFT.getCount() >= dasTime) {
             // 左移動
             ax = -1;
         }
@@ -224,16 +228,16 @@ public class TetriminoData {
     private void dropCheck(ScreenData screenData) {
         if (lockCount >= 0) {
             //System.out.println("lock=" + lockCount + ", down=" + KeyAction.MOVE_DROP.getCount());
-            if (KeyAction.MOVE_DROP.getCount() == 1) {
+            if (inputData.MOVE_DROP.getCount() == 1) {
                 // 着地させる
                 lockCount = lockTime;
             }
             return;
         }
         gravityCount += gravitySpeed;
-        if (gravityCount < GRAVITY_SIZE && KeyAction.MOVE_DROP.isPush()) {
+        if (gravityCount < GRAVITY_SIZE && inputData.MOVE_DROP.isPush()) {
             gravityCount = GRAVITY_SIZE;
-        } else if (KeyAction.HARD_DROP.isPush()) {
+        } else if (inputData.HARD_DROP.isPush()) {
             // 下まで落とす
             gravityCount = GRAVITY_SIZE * 20;
         }

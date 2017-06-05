@@ -8,7 +8,7 @@ public interface IPlayConfig extends IDelayConfig, ISpeedConfig {
     boolean canHold();
     boolean isGhost(int level);
 
-    int initLevel();
+    int initLevel(long seed);
     int getNextLevel(int curLevel, int deleteLines);
     int getTargetLevel(int level);
 
